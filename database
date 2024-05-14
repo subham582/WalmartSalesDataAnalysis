@@ -1,0 +1,227 @@
+# WalmartSalesDataAnalysis
+made with help of MySql workbench
+CREATE DATABASE IF NOT EXISTS salesDataWalmart;
+USE salesDataWalmart;
+
+CREATE TABLE IF NOT EXISTS SALES(
+     invoice_id varchar(30) NOT NULL primary key,
+	 branch varchar(5) NOT NULL,
+     city varchar(30) not null,
+     customer_type varchar(30) not null,
+     gender varchar(10) not null,
+     product_line varchar(100) not null,
+     unit_price decimal(10,2) not null,
+     quantity int not null,
+     VAT float not null,
+     total decimal(12,4) not null,
+     date datetime not null,
+     time TIME not null,
+     payment_method varchar(15) not null,
+     cogs decimal(10,2) not null,
+     gross_margin_pct float,
+     gross_income decimal(12,4) not null,
+	 rating float
+);
+select * from salesDataWalmart.sales;
+
+
+
+-- ------------------------------------------------------
+-- ---------------------FEATURE ENGINEERING---------------
+-- ---time_of_day---
+select time,
+(case 
+     when time between "00:00:00" and "12:00:00" then 'Morning'
+     when time between "12:01:00" and "16:00:00" then 'Afternoon'
+     else "Evening" 
+end
+)
+as time_of_date
+from sales;
+
+
+alter table sales add column time_of_day varchar(20);
+select * from sales;
+
+update sales
+set time_of_day = (
+   case 
+        when time between "00:00:00" and "12:00:00" then 'Morning'
+        when time between "12:01:00" and "16:00:00" then 'Afternoon'
+        else "Evening" 
+   end
+   );
+   
+   -- day_name
+   select date,dayname(date) as day_name from salesdatawalmart.sales;
+   
+   alter table sales add column day_name varchar(10);
+   
+   update sales
+   set day_name = dayname(date);
+   select date,day_name from sales;
+   
+   -- month name
+   
+   select date,monthname(date) as month_name from sales;
+   alter table sales add column month_name varchar(10);
+   
+   update sales set month_name = monthname(date);
+   
+   -- ---------------------------------------------------
+   -- -------Generic----------
+   -- how many unique cities are present?
+   select distinct city from sales;
+   
+   select distinct city, branch from sales;
+   
+   -- --------------
+   -- Product----
+   select count(distinct product_line) from sales;
+   -- most common payment method??
+   select payment_method,
+   count(payment_method) as cnt
+   from sales
+   group by payment_method
+   order by cnt desc;
+   -- leading payment method is cash
+   
+   -- what is the most selling product line?
+   select product_line,
+   count(product_line) as count
+   from sales
+   group by product_line
+   order by count asc;
+   -- most selling productline is fashion accessories 
+   -- what is total revenue by month?
+   select month_name as month,
+   sum(total) as total_revenue
+   from sales
+   group by month_name
+   order by total_revenue desc;
+   -- what month had the largest cogs?
+   select month_name, 
+   sum(cogs) as cogs_sum
+   from sales
+   group by month_name
+   having cogs_sum = (select max(sum_cogs) from (select sum(cogs) as sum_cogs from sales
+   group by month_name) as cogs_by_month);
+   
+  /* select month_name,
+   sum(cogs) as cogs_sum
+   from sales
+   group by month_name; */
+   
+  -- select month_name,cogs from sales;
+  -- what product line has the largest revenue?
+  select product_line,
+  sum(total) as total_rev
+  from sales
+  group by product_line
+  having total_rev = (select max(rev) from (select sum(total) as rev from sales
+  group by product_line) as rev_by_prodl);
+   
+   /*   select product_line ,sum(total) as rev_by_month from sales
+  group by product_line ;  */
+  -- which city has the largest revenue?
+   select city,
+  sum(total) as total_rev
+  from sales
+  group by city
+  having total_rev = (select max(rev) from (select sum(total) as rev from sales
+  group by city) as rev_by_city);
+   
+   -- which branch sold more products than average products sold?
+   select branch,
+   sum(quantity) as products_sum
+   from sales
+   group by branch
+   having products_sum > (select avg(quantity) from  sales)
+   order by products_sum asc;
+   -- what is most common product line by gender?
+   select product_line as pl,gender, count(*) total_sales
+   from sales 
+   group by pl ,gender
+   order by total_sales desc,gender asc;
+   -- what is the average rating of each product line?
+   select product_line,
+   round(avg(rating) , 2) as avg_rating
+   from sales
+   group by product_line
+   order by avg_rating asc;
+   
+   
+   -- ----------sales --------------------
+   -- --------
+   
+   
+  -- No of sales made in each time of the day per weekday?
+  
+  select  dayname(date) as weekday,time_of_day,count(*) as total_sales
+  from salesdatawalmart.sales
+  where dayname(date) = 'Sunday'
+  group by weekday,time_of_day
+  order by weekday,total_sales desc;
+  
+  
+  -- which type of customer brings more revenue?
+  
+  select customer_type,sum(total) as total_rev
+  from salesdatawalmart.sales
+  group by customer_type
+  having total_rev = (select max(revenue_sum) from (select sum(total) as revenue_sum from sales
+  group by customer_type) as revenue);
+  -- which city has the largeest tax percent/vat?
+  
+  select city,avg(VAT) as vat
+  from salesdatawalmart.sales
+  group by city
+  order by vat desc;
+  
+  -- which customer type pays most in vat?
+  select customer_type,avg(VAT) as vat
+  from salesdatawalmart.sales
+  group by customer_type
+  order by vat desc;
+  
+  -- CUSTOMER------------------------------------
+  -- ------------------------
+  -- How many unique customers   types does the data have?
+  select distinct customer_type
+  from sales;
+  -- how many unique payment methods does the data have?
+  select distinct payment_method from salesdatawalmart.sales;
+  -- which customer type buys the most?
+  
+  select customer_type,count(*) as cnt
+  from salesdatawalmart.sales
+  group by customer_type;
+  
+  -- what is the gender of most of the customers?
+  select gender,customer_type
+  from sales
+  where customer_type = (select customer_type from salesdatawalmart.sales
+  group by customer_type
+  order by count(*) desc
+  limit 1);
+  -- what is gender distribution per branch?
+  
+  select gender,branch,count(*) as gender_cnt
+  from sales 
+  group by gender,branch
+  order by gender_cnt desc,branch asc;
+  -- what time of day do most customers give most ratings?
+  select time_of_day,
+  avg(rating) as avg_rating
+  from sales 
+  where branch = "A"
+  group by time_of_day
+  order by avg_rating desc;
+  -- which day of the week has the best average ratings?
+  select day_name,
+  avg(rating) as avg_rating
+  from sales 
+  group by day_name
+  
+  order by avg_rating desc;
+  
